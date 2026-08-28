@@ -1,0 +1,35 @@
+{
+    "model_name": "Random Forest",
+    "target_column": "Class",
+    "normal_class": 0,
+    "fraud_class": 1,
+    "scaled_columns": [
+        "Time",
+        "Amount"
+    ],
+    "feature_count": 30,
+    "selection_rule": "F1 Score, then Recall, then ROC-AUC",
+    "validation_metrics": {
+        "Random Forest": {
+            "Accuracy": 0.9992730637060534,
+            "Precision": 0.7471264367816092,
+            "Recall": 0.8552631578947368,
+            "F1 Score": 0.7975460122699386,
+            "ROC-AUC": 0.970488804756817
+        },
+        "XGBoost": {
+            "Accuracy": 0.9981055599612301,
+            "Precision": 0.4647887323943662,
+            "Recall": 0.868421052631579,
+            "F1 Score": 0.6055045871559633,
+            "ROC-AUC": 0.9715824894318763
+        }
+    },
+    "test_metrics": {
+        "Accuracy": 0.9990131463010609,
+        "Precision": 0.6756756756756757,
+        "Recall": 0.7894736842105263,
+        "F1 Score": 0.7281553398058253,
+        "ROC-AUC": 0.975565535610929
+    }
+}
