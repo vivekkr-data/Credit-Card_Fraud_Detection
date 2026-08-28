@@ -7,6 +7,12 @@ import pandas as pd
 import streamlit as st
 
 
+st.set_page_config(
+    page_title="Credit Card Fraud Detection",
+    page_icon="💳",
+    layout="wide",
+)
+
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
 
@@ -16,6 +22,7 @@ FEATURE_NAMES_PATH = MODEL_DIR / "feature_names.pkl"
 MODEL_INFO_PATH = MODEL_DIR / "model_info.json"
 
 SCALE_COLS = ["Time", "Amount"]
+EXPECTED_FEATURES = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
 
 
 @st.cache_resource
@@ -44,14 +51,16 @@ def load_artifacts():
     with MODEL_INFO_PATH.open("r", encoding="utf-8") as file:
         model_info = json.load(file)
 
-    if not isinstance(feature_names, list) or not feature_names:
-        raise ValueError("Saved feature information is invalid. Please retrain the model.")
-
-    missing_scale_cols = [col for col in SCALE_COLS if col not in feature_names]
-    if missing_scale_cols:
+    if feature_names != EXPECTED_FEATURES:
         raise ValueError(
-            f"Saved features are missing required scaled columns: {missing_scale_cols}"
+            "Saved feature names or their order are invalid. Please retrain the model."
         )
+    if not callable(getattr(model, "predict", None)):
+        raise ValueError("Saved model is invalid. Please retrain the model.")
+    if not callable(getattr(scaler, "transform", None)):
+        raise ValueError("Saved scaler is invalid. Please retrain the model.")
+    if not isinstance(model_info, dict):
+        raise ValueError("Saved model information is invalid. Please retrain the model.")
 
     return model, scaler, feature_names, model_info
 
@@ -68,7 +77,7 @@ def predict_transactions(model, processed_data):
         raise ValueError("The trained model returned an unexpected class label.")
 
     fraud_scores = None
-    if hasattr(model, "predict_proba"):
+    if callable(getattr(model, "predict_proba", None)):
         class_labels = list(model.classes_)
         if 1 not in class_labels:
             raise ValueError("The trained model does not contain fraud class 1.")
@@ -147,7 +156,7 @@ def show_single_prediction(model, scaler, feature_names):
                     "This score is produced by the machine learning model and should not "
                     "be interpreted as a calibrated real-world banking risk probability."
                 )
-        except (ValueError, TypeError) as error:
+        except Exception as error:
             st.error(f"Prediction could not be completed: {error}")
 
 
@@ -187,7 +196,7 @@ def show_batch_prediction(model, scaler, feature_names):
 
     try:
         uploaded_data = pd.read_csv(uploaded_file)
-    except (pd.errors.ParserError, UnicodeDecodeError, ValueError):
+    except (pd.errors.ParserError, UnicodeDecodeError, ValueError, OSError):
         st.error("Please upload a valid CSV file.")
         return
 
@@ -199,7 +208,7 @@ def show_batch_prediction(model, scaler, feature_names):
         model_input = validate_batch_data(uploaded_data, feature_names)
         processed_data = preprocess_data(model_input, scaler, feature_names)
         predictions, fraud_scores = predict_transactions(model, processed_data)
-    except (ValueError, TypeError) as error:
+    except Exception as error:
         st.error(str(error))
         return
 
@@ -247,7 +256,10 @@ def show_about_model(model_info):
         "ROC-AUC",
     ]):
         value = test_metrics.get(metric_name)
-        displayed_value = f"{float(value):.4f}" if value is not None else "N/A"
+        try:
+            displayed_value = f"{float(value):.4f}" if value is not None else "N/A"
+        except (TypeError, ValueError):
+            displayed_value = "N/A"
         column.metric(f"Test {metric_name}", displayed_value)
 
     st.markdown(
@@ -271,12 +283,6 @@ def show_about_model(model_info):
 
 
 def main():
-    st.set_page_config(
-        page_title="Credit Card Fraud Detection",
-        page_icon="💳",
-        layout="wide",
-    )
-
     st.title("Credit Card Fraud Detection System")
     st.write(
         "Machine Learning based fraud detection using SMOTE, Random Forest and XGBoost."
@@ -296,6 +302,12 @@ def main():
     except (OSError, ValueError, json.JSONDecodeError) as error:
         st.error(f"Saved model artifacts could not be loaded: {error}")
         st.info("Please run train_model.py again to recreate the model artifacts.")
+        st.stop()
+    except Exception:
+        st.error(
+            "Saved model artifacts are incompatible or damaged. "
+            "Please run train_model.py again."
+        )
         st.stop()
 
     with st.sidebar:
