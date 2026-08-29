@@ -205,17 +205,24 @@ Activate it on Linux or macOS:
 source venv/bin/activate
 ```
 
-Install the required packages:
+Install the lightweight dependencies required to run the Streamlit application:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-`requirements.txt` contains the exact package versions used for the verified training run and saved model artifacts.
+To retrain the model or execute the complete notebook, install the training dependencies instead:
+
+```bash
+pip install -r requirements-train.txt
+```
+
+Both files pin compatible package versions. Keeping training-only libraries out of
+`requirements.txt` makes Streamlit Community Cloud builds smaller and faster.
 
 ## Train Model
 
-Confirm that `data/creditcard.csv` exists, then run:
+Confirm that `data/creditcard.csv` exists, install `requirements-train.txt`, then run:
 
 ```bash
 python train_model.py
@@ -254,7 +261,7 @@ The application loads only the saved model artifacts. It does not retrain the mo
 
 1. Train the model locally.
 2. Verify that each saved model artifact is below GitHub's file-size limit.
-3. Commit the model artifacts, application files, and normal repository files.
+3. Commit the model artifacts, application files, `requirements.txt`, and normal repository files.
 4. Confirm that `data/creditcard.csv` is not staged or committed.
 5. Open [Streamlit Community Cloud](https://streamlit.io/cloud).
 6. Connect GitHub and select this repository.
@@ -262,6 +269,7 @@ The application loads only the saved model artifacts. It does not retrain the mo
 8. Deploy and check the logs if a dependency or artifact-loading error occurs.
 
 The deployed application requires the saved model artifacts but does not require the training dataset.
+Training-only packages are listed separately in `requirements-train.txt` and are not installed during deployment.
 
 ## Limitations
 
