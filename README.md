@@ -6,6 +6,8 @@ This project detects potentially fraudulent credit card transactions using machi
 
 A Streamlit application supports single-transaction prediction, batch CSV prediction, fraud scores, prediction statistics, and downloadable results.
 
+**Live application:** [Open the Streamlit app](https://az82qddgji6sjnrfcm4xzu.streamlit.app/)
+
 > This is an educational machine learning project and not a production banking decision system.
 
 ## Problem Statement
@@ -161,6 +163,7 @@ Credit-Card_Fraud_Detection/
 ├── app.py
 ├── train_model.py
 ├── VIVA.md
+├── requirements-train.txt
 ├── requirements.txt
 ├── README.md
 └── .gitignore
@@ -211,7 +214,7 @@ Install the lightweight dependencies required to run the Streamlit application:
 pip install -r requirements.txt
 ```
 
-To retrain the model or execute the complete notebook, install the training dependencies instead:
+To retrain the model, or to run the notebook in an existing Jupyter or VS Code notebook environment, install the training dependencies instead:
 
 ```bash
 pip install -r requirements-train.txt
@@ -258,6 +261,8 @@ The application loads only the saved model artifacts. It does not retrain the mo
 - Actual saved test metrics in the About Model section
 
 ## Deployment
+
+The project is live at [az82qddgji6sjnrfcm4xzu.streamlit.app](https://az82qddgji6sjnrfcm4xzu.streamlit.app/).
 
 1. Train the model locally.
 2. Verify that each saved model artifact is below GitHub's file-size limit.

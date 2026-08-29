@@ -23,6 +23,7 @@ MODEL_INFO_PATH = MODEL_DIR / "model_info.json"
 
 SCALE_COLS = ["Time", "Amount"]
 EXPECTED_FEATURES = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
+MAX_FEATURE_VALUE = np.finfo(np.float32).max
 
 
 @st.cache_resource
@@ -59,6 +60,13 @@ def load_artifacts():
         raise ValueError("Saved model is invalid. Please retrain the model.")
     if not callable(getattr(scaler, "transform", None)):
         raise ValueError("Saved scaler is invalid. Please retrain the model.")
+    if getattr(model, "n_features_in_", None) != len(feature_names):
+        raise ValueError("Saved model has an invalid feature count. Please retrain it.")
+    if getattr(scaler, "n_features_in_", None) != len(SCALE_COLS):
+        raise ValueError("Saved scaler has an invalid feature count. Please retrain it.")
+    model_classes = getattr(model, "classes_", None)
+    if model_classes is None or set(model_classes) != {0, 1}:
+        raise ValueError("Saved model does not contain the expected classes 0 and 1.")
     if not isinstance(model_info, dict):
         raise ValueError("Saved model information is invalid. Please retrain the model.")
 
@@ -82,7 +90,16 @@ def predict_transactions(model, processed_data):
         if 1 not in class_labels:
             raise ValueError("The trained model does not contain fraud class 1.")
         fraud_class_index = class_labels.index(1)
-        fraud_scores = model.predict_proba(processed_data)[:, fraud_class_index]
+        fraud_scores = np.asarray(
+            model.predict_proba(processed_data)[:, fraud_class_index],
+            dtype=float,
+        )
+        if (
+            not np.isfinite(fraud_scores).all()
+            or (fraud_scores < 0).any()
+            or (fraud_scores > 1).any()
+        ):
+            raise ValueError("The trained model returned an invalid fraud score.")
 
     return predictions, fraud_scores
 
@@ -133,10 +150,12 @@ def show_single_prediction(model, scaler, feature_names):
                     key=f"single_{feature_name}",
                 )
 
-    if st.button("Predict Transaction", type="primary", use_container_width=True):
+    if st.button("Predict Transaction", type="primary", width="stretch"):
         try:
-            input_df = pd.DataFrame([input_values])
-            input_df = input_df[feature_names]
+            input_df = validate_input_data(
+                pd.DataFrame([input_values]),
+                feature_names,
+            )
             input_processed = preprocess_data(input_df, scaler, feature_names)
             predictions, fraud_scores = predict_transactions(model, input_processed)
 
@@ -160,15 +179,18 @@ def show_single_prediction(model, scaler, feature_names):
             st.error(f"Prediction could not be completed: {error}")
 
 
-def validate_batch_data(uploaded_data, feature_names):
-    missing_cols = [col for col in feature_names if col not in uploaded_data.columns]
+def validate_input_data(input_data, feature_names):
+    if input_data.empty:
+        raise ValueError("The uploaded CSV file does not contain any transaction rows.")
+
+    missing_cols = [col for col in feature_names if col not in input_data.columns]
     if missing_cols:
         raise ValueError(
             "Uploaded CSV is missing the following required columns: "
             + ", ".join(missing_cols)
         )
 
-    numeric_data = uploaded_data[feature_names].apply(pd.to_numeric, errors="coerce")
+    numeric_data = input_data[feature_names].apply(pd.to_numeric, errors="coerce")
     invalid_cols = numeric_data.columns[numeric_data.isnull().any()].tolist()
     if invalid_cols:
         raise ValueError(
@@ -176,8 +198,14 @@ def validate_batch_data(uploaded_data, feature_names):
             + ", ".join(invalid_cols)
         )
 
-    if not np.isfinite(numeric_data.to_numpy(dtype=float)).all():
+    numeric_values = numeric_data.to_numpy(dtype=float)
+    if not np.isfinite(numeric_values).all():
         raise ValueError("Required feature columns contain infinite numerical values.")
+    if (np.abs(numeric_values) > MAX_FEATURE_VALUE).any():
+        raise ValueError(
+            "Required feature columns contain values outside the supported "
+            "numerical range."
+        )
 
     return numeric_data[feature_names]
 
@@ -200,12 +228,8 @@ def show_batch_prediction(model, scaler, feature_names):
         st.error("Please upload a valid CSV file.")
         return
 
-    if uploaded_data.empty:
-        st.error("The uploaded CSV file does not contain any transaction rows.")
-        return
-
     try:
-        model_input = validate_batch_data(uploaded_data, feature_names)
+        model_input = validate_input_data(uploaded_data, feature_names)
         processed_data = preprocess_data(model_input, scaler, feature_names)
         predictions, fraud_scores = predict_transactions(model, processed_data)
     except Exception as error:
@@ -228,7 +252,7 @@ def show_batch_prediction(model, scaler, feature_names):
     metric_col_3.metric("Fraudulent Transactions", f"{fraud_transactions:,}")
     metric_col_4.metric("Predicted Fraud Rate", f"{predicted_fraud_rate:.2f}%")
 
-    st.dataframe(result_data, use_container_width=True)
+    st.dataframe(result_data, width="stretch")
 
     prediction_csv = result_data.to_csv(index=False).encode("utf-8")
     st.download_button(
@@ -236,7 +260,7 @@ def show_batch_prediction(model, scaler, feature_names):
         data=prediction_csv,
         file_name="fraud_prediction_results.csv",
         mime="text/csv",
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -268,8 +292,8 @@ def show_about_model(model_info):
 
 - The dataset is highly imbalanced, so Accuracy is not used alone.
 - Exact duplicate rows are removed before splitting.
-- `Time` and `Amount` are scaled using development data only.
-- SMOTE is applied only to development training data.
+- During model comparison, the scaler is fitted only on training data.
+- SMOTE is applied only to training data during comparison and combined development data during final retraining.
 - Random Forest and XGBoost are compared on a validation set.
 - The final test set remains untouched until the selected model's final evaluation.
 

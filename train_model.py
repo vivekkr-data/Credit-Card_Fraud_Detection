@@ -85,6 +85,9 @@ def load_data():
             f"{non_numeric_cols.tolist()}"
         )
 
+    if not np.isfinite(df[FEATURE_NAMES].to_numpy(dtype=float)).all():
+        raise ValueError("Input features contain infinite numerical values.")
+
     target_values = set(df[TARGET_COL].unique().tolist())
     if target_values != {0, 1}:
         raise ValueError(
