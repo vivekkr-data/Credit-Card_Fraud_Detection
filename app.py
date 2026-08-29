@@ -110,6 +110,10 @@ def show_single_prediction(model, scaler, feature_names):
         "Enter one transaction record. Time is elapsed transaction time, "
         "Amount is the transaction amount, and V1–V28 are anonymized PCA features."
     )
+    st.info(
+        "The displayed zeros are empty-form defaults, not a sample transaction. "
+        "Enter values from a real transaction record to enable prediction."
+    )
 
     top_col_1, top_col_2 = st.columns(2)
     with top_col_1:
@@ -150,7 +154,18 @@ def show_single_prediction(model, scaler, feature_names):
                     key=f"single_{feature_name}",
                 )
 
-    if st.button("Predict Transaction", type="primary", width="stretch"):
+    has_transaction_values = any(value != 0.0 for value in input_values.values())
+    if st.button(
+        "Predict Transaction",
+        type="primary",
+        width="stretch",
+        disabled=not has_transaction_values,
+        help=(
+            "Enter at least one non-zero transaction value first."
+            if not has_transaction_values
+            else None
+        ),
+    ):
         try:
             input_df = validate_input_data(
                 pd.DataFrame([input_values]),
@@ -269,6 +284,10 @@ def show_about_model(model_info):
 
     selected_model = model_info.get("model_name", "Not available")
     st.write(f"**Selected Model:** {selected_model}")
+    st.caption(
+        "The metrics below are fixed evaluation results from the complete held-out "
+        "test set. They are not calculated from the transaction entered in the form."
+    )
 
     test_metrics = model_info.get("test_metrics", {})
     metric_columns = st.columns(5)

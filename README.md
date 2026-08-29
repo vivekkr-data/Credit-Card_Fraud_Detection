@@ -252,13 +252,15 @@ The application loads only the saved model artifacts. It does not retrain the mo
 
 - Single transaction prediction
 - Organized inputs for `Time`, `Amount`, and `V1`–`V28`
+- Default-zero form protection so placeholders are not submitted as a transaction
 - Batch CSV prediction
 - Required-column and numerical-value validation
 - Normal or Fraud prediction label
 - Class-1 fraud score
 - Prediction statistics
 - Downloadable prediction results
-- Actual saved test metrics in the About Model section
+- Actual saved held-out test metrics in the About Model section; these are not
+  per-transaction accuracy values
 
 ## Deployment
 
